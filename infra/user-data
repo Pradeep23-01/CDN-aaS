@@ -1,0 +1,29 @@
+#cloud-config
+# Disable root password login
+disable_root: false
+
+ssh_authorized_keys:
+  - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCvIrBnnUoNoirQdjmPRa1y1+mXaimvnYozRQNfqjfwB/JLkXJswp6wWaq25bbJhp4ctDgDSxpOS6sRzUnVfNPEzTL3bM3385a2HPzUE54oMk7JHgLSM8v9KYvBUyW9Zrj1ZGDEATPzoS863FzKgcsqS1Jll0uaBe5JTq8GNBEbD2vw4AIQG3zsOdVE0u7WC7rOiUaToOpgLz8HojR5Yqyy9PGYlQFniWyLKrCPch4rqiOBM/cD1+b9aT/+vo4c+ogOGZ6i2JOi9DNr6bm+Tfdo56PQebBYBKGrmgLKsuc/YZBijBEn6GUPRWAKqR85YYtheWlm2c+MgmlxydVxGWtB root@lnVM13
+packages:
+  - iperf3
+  - wireshark
+users:
+  - name: ash10
+    groups: sudo
+    shell: /bin/bash
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    ssh_authorized_keys:
+      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCvIrBnnUoNoirQdjmPRa1y1+mXaimvnYozRQNfqjfwB/JLkXJswp6wWaq25bbJhp4ctDgDSxpOS6sRzUnVfNPEzTL3bM3385a2HPzUE54oMk7JHgLSM8v9KYvBUyW9Zrj1ZGDEATPzoS863FzKgcsqS1Jll0uaBe5JTq8GNBEbD2vw4AIQG3zsOdVE0u7WC7rOiUaToOpgLz8HojR5Yqyy9PGYlQFniWyLKrCPch4rqiOBM/cD1+b9aT/+vo4c+ogOGZ6i2JOi9DNr6bm+Tfdo56PQebBYBKGrmgLKsuc/YZBijBEn6GUPRWAKqR85YYtheWlm2c+MgmlxydVxGWtB root@lnVM13
+    lock_passwd: false
+    plain_text_passwd: 'ash'
+
+  - name: ash20
+    groups: sudo
+    shell: /bin/bash
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    ssh_authorized_keys:
+      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCvIrBnnUoNoirQdjmPRa1y1+mXaimvnYozRQNfqjfwB/JLkXJswp6wWaq25bbJhp4ctDgDSxpOS6sRzUnVfNPEzTL3bM3385a2HPzUE54oMk7JHgLSM8v9KYvBUyW9Zrj1ZGDEATPzoS863FzKgcsqS1Jll0uaBe5JTq8GNBEbD2vw4AIQG3zsOdVE0u7WC7rOiUaToOpgLz8HojR5Yqyy9PGYlQFniWyLKrCPch4rqiOBM/cD1+b9aT/+vo4c+ogOGZ6i2JOi9DNr6bm+Tfdo56PQebBYBKGrmgLKsuc/YZBijBEn6GUPRWAKqR85YYtheWlm2c+MgmlxydVxGWtB root@lnVM13
+    lock_passwd: false
+    plain_text_passwd: 'ash'
+
+ssh_pwauth: True

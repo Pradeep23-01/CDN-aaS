@@ -1,0 +1,3 @@
+# cloud-config
+instance-id: T2-VM2
+local-hostname: T2-VM2

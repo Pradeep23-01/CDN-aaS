@@ -1,0 +1,59 @@
+---
+- name: Create and Configure a VM
+  hosts: localhost
+  gather_facts: no
+  vars_prompt:
+    - name: vm_name
+      prompt: "Enter VM name"
+      private: no
+    - name: ram
+      prompt: "Enter RAM size"
+      private: no
+    - name: cpu
+      prompt: "Enter VCPU"
+      private: no
+    - name: network_name
+      prompt: "Enter Network to Attach"
+      private: no
+
+
+  tasks:
+    - name: Write meta-data file
+      copy:
+        content: |
+          # cloud-config
+          instance-id: {{ vm_name }}
+          local-hostname: {{ vm_name }}
+        dest: "/var/lib/libvirt/images/meta-data"
+
+    - name: Create a qcow2 file for VM
+      shell: >
+        sudo qemu-img create -f qcow2 -F qcow2 -o backing_file=/var/lib/libvirt/images/jammy-server-cloudimg-amd64.img /var/lib/libvirt/images/{{ vm_name }}.qcow2
+      args:
+        executable: /bin/bash
+
+    - name: Resize the qcow2 file to 10G
+      command: >
+        sudo qemu-img resize /var/lib/libvirt/images/{{ vm_name }}.qcow2 10G
+    
+    - name: Create cidata.iso for cloud-init
+      shell: >
+        sudo genisoimage -output /var/lib/libvirt/images/{{ vm_name }}-cidata.iso -volid cidata -joliet -rock user-data /var/lib/libvirt/images/meta-data
+      args:
+        executable: /bin/bash
+    
+    - name: Execute virt-install to create the VM
+      shell: >
+        sudo virt-install --virt-type kvm --name {{ vm_name }}
+        --ram {{ram}} --vcpus {{cpu}} --os-variant ubuntu22.04
+        --disk path=/var/lib/libvirt/images/{{ vm_name }}.qcow2,format=qcow2
+        --disk path=/var/lib/libvirt/images/{{ vm_name }}-cidata.iso,device=cdrom
+        --noautoconsole --import --network network='default'
+      args:
+        executable: /bin/bash
+
+    - name: Attach interface to VM
+      become: true
+      command: >
+        sudo virsh attach-interface --type bridge --model virtio {{ vm_name }} --source {{ network_name }}
+

@@ -1,0 +1,53 @@
+---
+- name: Collect VM creation details and create VMs
+  hosts: localhost
+  gather_facts: no
+  vars_prompt:
+    - name: vm_count
+      prompt: "Enter the number of VMs to create"
+      private: no
+      default: "1"
+
+  tasks:
+
+    - set_fact:
+        vm_name: ee #"{{ vm_details.user_input.split('\n')[1].split(': ')[1] }}"
+        tenant_id: 33 # "{{ vm_details.user_input.split('\n')[2].split(': ')[1] }}"
+        vpc_name: 34 # "{{ vm_details.user_input.split('\n')[3].split(': ')[1] }}"
+        bridge_name: dwer # "{{ vm_details.user_input.split('\n')[4].split(': ')[1] }}"
+        register: vm_details
+
+#    - name: Collect VM details
+#      pause:
+#        prompt: |
+#          Enter details for VM number {{ item }}:
+#          VM name:
+#          Tenant ID:
+#          VPC name:
+#          Bridge Name:
+#      register: vm_details
+#      loop: "{{ range(1, vm_count | int + 1) | list }}"
+#      loop_control:
+#        loop_var: item
+
+    - name: Create VM with specified details
+      include_tasks: create_vm.yaml
+      vars:
+        vm_name: "{{ hostvars['localhost']['vm_name'] }}" #"{{ vm_details.user_input.split('\n')[1].split(': ')[1] }}"
+        tenant_id: "{{ hostvars['localhost']['tenant_id'] }}" # "{{ vm_details.user_input.split('\n')[2].split(': ')[1] }}"
+        vpc_name:  "{{ hostvars['localhost']['vpc_name'] }}"  # "{{ vm_details.user_input.split('\n')[3].split(': ')[1] }}"
+        bridge_name:  "{{ hostvars['localhost']['bridge_name'] }}"  # "{{ vm_details.user_input.split('\n')[4].split(': ')[1] }}"
+#      loop: "{{ vm_details.results }}"
+#      loop_control:
+#        loop_var: vm_details_item
+
+    - name: Wait for VMs to initialize
+      pause:
+        seconds: 60  # Adjust the wait time as needed
+
+    - name: Copy file to each VM
+      command: "scp {{ source_file }} user@vm_{{ item }}:{{ destination_path }}"
+      loop: "{{ range(1, vm_count | int + 1) | list }}"
+      loop_control:
+        loop_var: item
+      when: vm_count | int > 0

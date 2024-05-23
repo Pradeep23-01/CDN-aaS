@@ -1,0 +1,36 @@
+---
+- name: Set up network namespace with OVS and NAT dynamically
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  become: yes
+  vars_files:
+    - vpc_details.json
+
+  tasks:
+    - name: Create network namespace
+      command: ip netns add "{{ vpc_name }}"
+
+    - name: Create veth pair
+      command: ip link add "{{ vpc_name }}host1" type veth peer name "{{ vpc_name }}ns1"
+
+    - name: Assign one end of veth to the network namespace
+      command: ip link set "{{ vpc_name }}ns1" netns "{{ vpc_name }}"
+
+    - name: Set both veth ends up
+      command: "{{ item }}"
+      loop:
+        - ip netns exec "{{ vpc_name }}" ip link set "{{ vpc_name }}ns1" up
+        - ip link set "{{ vpc_name }}host1" up
+
+    - name: Assign IP addresses to veth ends
+      command: "{{ item }}"
+      loop:
+        - ip netns exec "{{ vpc_name }}" ip addr add "{{ namespace_ip }}/30" dev "{{ vpc_name }}ns1"
+        - ip addr add "{{ gateway_ip }}/30" dev "{{ vpc_name }}host1"
+
+    - name: Add default route in network namespace
+      command: ip netns exec "{{ vpc_name }}" ip route add default via "{{ gateway_ip }}" dev "{{ vpc_name }}ns1"
+
+    - name: Set up NAT with iptables
+      command: iptables -t nat -I POSTROUTING 1 -s "{{ prefix }}" ! -d "{{ prefix }}" -j MASQUERADE

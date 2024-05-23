@@ -1,0 +1,59 @@
+---
+- name: Create and launch a VM
+  hosts: localhost
+  become: yes
+  vars_prompt:
+    - name: vm_name
+      prompt: Enter VM name
+      private: no
+    - name: tenant_id
+      prompt: Enter Tenant ID
+      private: no
+    - name: vpc_name
+      prompt: Enter VPC name
+      private: no
+    - name: bridgename
+      prompt: Enter Bridge Name
+      private: no
+
+  tasks:
+    - name: Check if VM exists
+      command: "sudo virsh dominfo {{ vm_name }}"
+      register: vm_exists
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Create a qcow2 VM disk from base image
+      command: "sudo qemu-img create -f qcow2 -F qcow2 -o backing_file=/var/lib/libvirt/images/jammy-server-cloudimg-amd64.img /var/lib/libvirt/images/{{ vm_name }}.qcow2"
+      when: vm_exists.rc != 0
+
+    - name: Resize the VM disk
+      command: "sudo qemu-img resize /var/lib/libvirt/images/{{ vm_name }}.qcow2 10G"
+      when: vm_exists.rc != 0
+
+    - name: Write meta-data file
+      copy:
+        dest: "/var/lib/libvirt/images/meta-data"
+        content: |
+          # cloud-config
+          instance-id: {{ vm_name }}
+          local-hostname: {{ vm_name }}
+      when: vm_exists.rc != 0
+
+    - name: Generate cidata.iso with cloud-init config
+      command: "sudo genisoimage -output /var/lib/libvirt/images/{{ vm_name }}-cidata.iso -volid cidata -joliet -rock user-data /var/lib/libvirt/images/meta-data"
+      args:
+        chdir: /var/lib/libvirt/images/
+      when: vm_exists.rc != 0
+
+    - name: Create the VM with virt-install
+      command: >
+        sudo virt-install --virt-type kvm --name {{ vm_name }} --ram 2048 --vcpus 2
+        --os-variant ubuntu22.04 --disk path=/var/lib/libvirt/images/{{ vm_name }}.qcow2,format=qcow2
+        --disk path=/var/lib/libvirt/images/{{ vm_name }}-cidata.iso,device=cdrom
+        --noautoconsole --import --network network='default'
+      when: vm_exists.rc != 0
+
+    - name: Attach a network interface to VM
+      command: "sudo virsh attach-interface --type bridge --source {{ bridgename }} --model virtio {{ vm_name }}"
+      when: vm_exists.rc == 0

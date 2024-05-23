@@ -1,0 +1,60 @@
+---
+- name: Setup Subnet within VPC
+  hosts: localhost
+  connection: local
+  become: yes
+  vars:
+    subnet_prefix: "192.168.100.0/24"  # Example subnet
+    gateway_ip: "192.168.100.1"  # Example gateway IP
+    dhcp_start: "192.168.100.50"  # DHCP start range
+    dhcp_end: "192.168.100.100"  # DHCP end range
+    subnet_mask: "255.255.255.0"  # Subnet mask
+    vpc_name: "example_vpc"  # Example VPC name
+  tasks:
+    - name: Generate random string for unique identification
+      ansible.builtin.set_fact:
+        unique_id: "{{ lookup('password', '/dev/null chars=ascii_letters,digits length=8') }}"
+
+    - name: Create Open vSwitch Bridge
+      command: "ovs-vsctl add-br br-{{ subnet_prefix | regex_replace('/', '_') }}"
+      ignore_errors: yes
+
+    - name: Assign IP Address to the Bridge
+      command: "ip addr add {{ gateway_ip }}/{{ subnet_prefix.split('/')[1] }} dev br-{{ subnet_prefix | regex_replace('/', '_') }}"
+      ignore_errors: yes
+
+    - name: Bring Up the Bridge
+      command: "ip link set dev br-{{ subnet_prefix | regex_replace('/', '_') }} up"
+      ignore_errors: yes
+
+    - name: Create Veth Pair with unique names
+      command: "ip link add veth1-{{ unique_id }} type veth peer name veth2-{{ unique_id }}"
+      ignore_errors: yes
+
+    - name: Attach Veth to the Bridge
+      command: "ovs-vsctl add-port br-{{ subnet_prefix | regex_replace('/', '_') }} veth1-{{ unique_id }}"
+      ignore_errors: yes
+
+    - name: Move Veth End to Namespace
+      command: "ip link set veth2-{{ unique_id }} netns {{ vpc_name }}"
+      ignore_errors: yes
+
+    - name: Assign IP to Veth in Namespace
+      command: "ip netns exec {{ vpc_name }} ip addr add {{ dhcp_start }} dev veth2-{{ unique_id }}"
+      ignore_errors: yes
+
+    - name: Bring Up Veth in Namespace
+      command: "ip netns exec {{ vpc_name }} ip link set veth2-{{ unique_id }} up"
+      ignore_errors: yes
+
+    - name: Configure DNS/DHCP with Dnsmasq
+      command: >
+        ip netns exec {{ vpc_name }} dnsmasq --interface=veth2-{{ unique_id }}
+        --bind-interfaces --dhcp-range={{ dhcp_start }},{{ dhcp_end }},
+        {{ subnet_mask }},12h --dhcp-option=option:router,{{ gateway_ip }}
+        --dhcp-option=option:dns-server,8.8.8.8,8.8.4.4
+      ignore_errors: yes
+
+    - name: Enable SNAT for outbound traffic from the subnet
+      command: "ip netns exec {{ vpc_name }} iptables -t nat -A POSTROUTING -s {{ subnet_prefix }} ! -d {{ subnet_prefix }} -j MASQUERADE"
+      ignore_errors: yes

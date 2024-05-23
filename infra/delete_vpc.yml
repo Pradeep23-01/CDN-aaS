@@ -1,0 +1,12 @@
+---
+- name: Delete VPC Network Namespace
+  hosts: localhost
+  gather_facts: no
+  become: yes
+  vars:
+    vpc_details: "{{ lookup('file', 'vpc_delete_details.json') | from_json }}"
+
+  tasks:
+    - name: Delete network namespace for VPC
+      command: sudo ip netns del {{ vpc_details.tenant_uuid }}_{{ vpc_details.vpc_name }}_ns
+      ignore_errors: yes

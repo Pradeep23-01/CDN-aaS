@@ -1,0 +1,14 @@
+---
+- name: Delete Subnet
+  hosts: localhost
+  gather_facts: no
+  become: yes
+
+  tasks:
+    - name: Delete OVS Bridge
+      ovs_bridge:
+        bridge: "{{ subnet_name }}br1"
+        state: absent
+      vars:
+        subnet_name: "{{ subnet_mask.split('/')[0] }}"
+

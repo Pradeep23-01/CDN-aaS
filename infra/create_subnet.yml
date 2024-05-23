@@ -1,0 +1,81 @@
+- name: Set up subnet with OVS bridge and DHCP
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  become: yes
+  vars_files:
+    - subnet_details.json
+
+  tasks:
+    - name: Create OVS bridge
+      block:
+        - command: ovs-vsctl add-br "{{ subnet_name }}br1"
+          register: create_ovs_bridge
+      rescue:
+        - debug:
+            msg: "Failed to create OVS bridge: {{ create_ovs_bridge.stderr }}"
+        - fail:
+            msg: "Failed to create OVS bridge"
+
+    - name: Create veth pair for OVS connection
+      block:
+        - command: ip link add "{{ subnet_name }}ns1" type veth peer name "ns1{{ subnet_name }}"
+          register: create_veth_pair
+      rescue:
+        - debug:
+            msg: "Failed to create veth pair: {{ create_veth_pair.stderr }}"
+        - fail:
+            msg: "Failed to create veth pair"
+
+    - name: Attach one end to OVS and the other to namespace
+      block:
+        - command: "{{ item }}"
+          loop:
+            - ip link set "{{ subnet_name }}ns1" up
+            - ip link set "ns1{{ subnet_name }}" netns NS1
+            - ovs-vsctl add-port "{{ subnet_name }}br1" "{{ subnet_name }}ns1"
+            - ip netns exec NS1 ip link set "ns1{{ subnet_name }}" up
+          register: attach_interfaces
+      rescue:
+        - debug:
+            msg: "Failed to attach interfaces: {{ attach_interfaces.stderr }}"
+        - fail:
+            msg: "Failed to attach interfaces"
+
+    - name: Assign IP address inside namespace for dnsmasq
+      block:
+        - command: ip netns exec NS1 ip addr add "{{ subnet_prefix.split('/')[0] }}1/24" dev "ns1{{ subnet_name }}"
+          register: assign_ip_address
+      rescue:
+        - debug:
+            msg: "Failed to assign IP address: {{ assign_ip_address.stderr }}"
+        - fail:
+            msg: "Failed to assign IP address"
+
+    - name: Setup dnsmasq configuration
+      block:
+        - copy:
+            dest: "/etc/{{ subnet_name }}-dnsmasq.conf"
+            content: |
+              interface=ns1{{ subnet_name }}
+              dhcp-range=ns1{{ subnet_name }},{{ dhcp_start }},{{ dhcp_end }},12h
+              server=8.8.8.8
+              server=8.8.4.4
+          register: setup_dnsmasq
+      rescue:
+        - debug:
+            msg: "Failed to setup dnsmasq configuration: {{ setup_dnsmasq.stderr }}"
+        - fail:
+            msg: "Failed to setup dnsmasq configuration"
+
+    - name: Start dnsmasq inside NS1
+      block:
+        - command: ip netns exec NS1 nohup dnsmasq --conf-file=/etc/{{ subnet_name }}-dnsmasq.conf --no-daemon > /dev/null 2>&1 &
+          async: 10
+          poll: 0
+          register: start_dnsmasq
+      rescue:
+        - debug:
+            msg: "Failed to start dnsmasq: {{ start_dnsmasq.stderr }}"
+        - fail:
+            msg: "Failed to start dnsmasq"

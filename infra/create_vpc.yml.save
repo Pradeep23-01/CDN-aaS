@@ -1,0 +1,56 @@
+---
+- name: Create VPC with Network Namespace and SNAT Rules
+  hosts: localhost
+  gather_facts: no
+  become: yes
+  vars:
+    vpc_details: "{{ lookup('file', 'vpc_details.json') | from_json }}"
+    host_interface: eth0
+  tasks:
+    - name: Check if network namespace exists
+      command: ip netns list
+      register: ns_list
+
+    - name: Create network namespace if not exists
+      command: ip netns add {{ vpc_details.tenant_uuid }}_{{ vpc_details.vpc_name }}_ns
+      when: "'{{ vpc_details.tenant_uuid }}_{{ vpc_details.vpc_name }}_ns' not in ns_list.stdout"
+      ignore_errors: yes
+
+    - name: Create veth pair
+      command: ip link add veth_{{ vpc_details.vpc_name }} type veth peer name veth_{{ vpc_details.vpc_name }}_ns
+      ignore_errors: yes
+
+    - name: Attach one end of veth pair to the network namespace
+      command: ip link set veth_{{ vpc_details.vpc_name }}_ns netns {{ vpc_details.tenant_uuid }}_{{ vpc_details.vpc_name }}_ns
+      ignore_errors: yes
+
+    - name: Assign IP to veth inside namespace
+      command: ip netns exec {{ vpc_details.tenant_uuid }}_{{ vpc_details.vpc_name }}_ns ip addr add {{ vpc_details.prefix | regex_replace('0/24', '2/24') }} dev veth_{{ vpc_details.vpc_name }}_ns
+      ignore_errors: yes
+
+    - name: Bring up veth inside namespace
+      command: ip netns exec {{ vpc_details.tenant_uuid }}_{{ vpc_details.vpc_name }}_ns ip link set veth_{{ vpc_details.vpc_name }}_ns up
+      ignore_errors: yes
+
+    - name: Assign IP to the host end of veth pair
+      command: ip addr add {{ vpc_details.prefix | regex_replace('0/24', '1/24') }} dev veth_{{ vpc_details.vpc_name }}
+      ignore_errors: yes
+
+    - name: Bring up the host end of veth pair
+      command: ip link set veth_{{ vpc_details.vpc_name }} up
+      ignore_errors: yes
+
+    - name: Enable IP forwarding
+      sysctl:
+        name: net.ipv4.ip_forward
+        value: '1'
+      ignore_errors: yes
+
+    - name: Apply SNAT rule for outbound traffic from namespace
+      iptables:
+        table: nat
+        chain: POSTROUTING
+        out_interface: "{{ host_interface }}"
+        source: "{{ vpc_details.prefix }}"
+        jump: MASQUERADE
+      ignore_errors: yes

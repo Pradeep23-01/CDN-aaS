@@ -1,0 +1,5 @@
+Customer_ID,srcdata,locations,Subnet,vm_details
+customer_4,/home/vmadm/saas/storage/customer_4,"['loc1', 'loc2']",10.0.0.0/24,
+customer_5,/home/vmadm/saas/storage/customer_5,"['loc1', 'loc2']",10.0.0.0/24,
+customer_6,/home/vmadm/saas/storage/customer_6,"['loc1', 'loc2']",10.0.0.0/24,
+customer_7,/home/vmadm/saas/storage/customer_7,"['loc1', 'loc2']",190.0.0.0/24,"{""customer_7_loc2"": {""ip"": ""Not Found"", ""mac"": ""52:54:00:69:88:ca"", ""vm_status"": ""Running"", ""app_status"": ""Updated""}, ""customer_7_client"": {""ip"": ""Not Found"", ""mac"": ""52:54:00:41:6e:4e"", ""vm_status"": ""Running"", ""app_status"": ""Updated""}, ""customer_7_controller"": {""ip"": ""Not Found"", ""mac"": ""52:54:00:88:c2:33"", ""vm_status"": ""Running"", ""app_status"": ""Updated""}, ""customer_7_loc1"": {""ip"": ""Not Found"", ""mac"": ""52:54:00:7d:83:5b"", ""vm_status"": ""Running"", ""app_status"": ""Updated""}, ""customer_7_host"": {""ip"": ""Not Found"", ""mac"": ""52:54:00:f7:f6:aa"", ""vm_status"": ""Running"", ""app_status"": ""Updated""}}"
